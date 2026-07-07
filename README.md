@@ -20,6 +20,30 @@ npm run preview
 
 `npm run preview` serves the built PWA and API proxy from `server.cjs` on port `8787`.
 
+## Docker Compose
+
+Run the app as a long-lived local service on port `3007`:
+
+```bash
+docker compose up -d --build
+```
+
+Useful commands:
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
+The Compose service uses `restart: unless-stopped`, so Docker restarts it after crashes and host reboots unless you stop it. This also requires Docker itself to start on boot.
+
+Open:
+
+```text
+http://localhost:3007/
+```
+
 ## Environment
 
 The browser app calls `/api/llm`; API keys are read only by the local Node process from `.env`.
