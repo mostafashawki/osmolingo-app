@@ -61,3 +61,9 @@ Gemini is supported in the provider settings, but it needs `GEMINI_API_KEY` in `
 ## Notifications
 
 Notifications are scheduled while the app is open or running as an installed PWA. Fully closed-app background delivery would require a push service or a native/background process.
+
+The app will not generate a new question while an existing question is still unanswered. Manual generation returns you to the pending question, and scheduled notifications become reminders for that same pending question, so API calls are not spent on extra questions before the current one is corrected.
+
+Mixed question generation follows the configured prompt weights with a history-aware balance. With the default 65% business / 35% everyday mix, the sequence is actively nudged toward that ratio instead of relying on pure random choice.
+
+When a notification question or reminder is sent, the app also tries to play `public/notification-tone.wav`. Browsers can still block sound until the user has interacted with the app or granted the relevant permissions.

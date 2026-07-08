@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import {
   Bell,
@@ -26,6 +26,8 @@ import {
   startNotificationScheduler,
   stopNotificationScheduler
 } from "./notifications";
+import { generateQuestionWithGuard, selectPromptForHistory } from "./questionFlow";
+import { formatDateTime, formatElapsed } from "./time";
 import type { AppSettings, PracticeRecord, ProviderModel, PromptId } from "./types";
 
 type Tab = "practice" | "history" | "bookmarks" | "settings";
@@ -47,10 +49,18 @@ export default function App() {
   const [showHints, setShowHints] = useState(false);
   const [busy, setBusy] = useState<"generate" | "correct" | "save" | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [modelDraft, setModelDraft] = useState<ProviderModel>(emptyModel);
+  const [now, setNow] = useState(() => new Date());
+  const generatingRef = useRef(false);
 
   useEffect(() => {
     void refresh();
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -59,9 +69,17 @@ export default function App() {
       return;
     }
 
-    startNotificationScheduler((record) => {
+    startNotificationScheduler((record, kind) => {
       setActiveRecord(record);
-      setRecords((current) => [record, ...current]);
+      if (kind === "new") {
+        setRecords((current) => mergeRecord(current, record));
+        setAnswer("");
+        setNotice("A new practice question was generated from your notification schedule.");
+      } else {
+        setRecords((current) => mergeRecord(current, record));
+        setAnswer(record.answer ?? "");
+        setNotice("Reminder: finish the pending question before generating another one.");
+      }
       setTab("practice");
     });
 
@@ -83,19 +101,28 @@ export default function App() {
   }
 
   async function handleGenerate(promptId?: PromptId) {
-    if (!settings) return;
+    if (!settings || generatingRef.current) return;
+    generatingRef.current = true;
     setBusy("generate");
     setError("");
+    setNotice("");
     try {
-      const record = await generateQuestion(settings, promptId);
+      const selectedPromptId = promptId ?? selectPromptForHistory(settings.prompts, records);
+      const result = await generateQuestionWithGuard(records, () => generateQuestion(settings, selectedPromptId));
+      const record = result.record;
       setActiveRecord(record);
-      setAnswer("");
+      setAnswer(record.answer ?? "");
       setShowHints(false);
-      setRecords((current) => [record, ...current]);
+      if (result.status === "created") {
+        setRecords((current) => mergeRecord(current, record));
+      } else {
+        setNotice("Finish the pending question before generating another one. This prevents unnecessary AI calls.");
+      }
       setTab("practice");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not generate a question.");
     } finally {
+      generatingRef.current = false;
       setBusy(null);
     }
   }
@@ -104,6 +131,7 @@ export default function App() {
     if (!settings || !activeRecord || !answer.trim()) return;
     setBusy("correct");
     setError("");
+    setNotice("");
     try {
       const correction = await correctAnswer(settings, activeRecord, answer.trim());
       const updated = {
@@ -233,12 +261,14 @@ export default function App() {
         </header>
 
         {error && <div className="error">{error}</div>}
+        {notice && <div className="notice">{notice}</div>}
 
         {tab === "practice" && (
           <PracticeView
             record={activeRecord}
             answer={answer}
             busy={busy}
+            now={now}
             showHints={showHints}
             onAnswer={setAnswer}
             onHints={() => setShowHints((value) => !value)}
@@ -295,6 +325,7 @@ function PracticeView({
   record,
   answer,
   busy,
+  now,
   showHints,
   onAnswer,
   onHints,
@@ -305,6 +336,7 @@ function PracticeView({
   record?: PracticeRecord;
   answer: string;
   busy: "generate" | "correct" | "save" | null;
+  now: Date;
   showHints: boolean;
   onAnswer: (value: string) => void;
   onHints: () => void;
@@ -335,7 +367,12 @@ function PracticeView({
     <section className="practice-grid">
       <article className="question-panel">
         <div className="question-meta">
-          <span>{record.promptId === "business" ? "Business" : "Everyday"}</span>
+          <div className="question-stamp">
+            <span>{record.promptId === "business" ? "Business" : "Everyday"}</span>
+            <small>
+              Generated {formatDateTime(record.createdAt)} · waiting {formatElapsed(record.createdAt, now)}
+            </small>
+          </div>
           <button className="icon-button" onClick={onBookmark} title="Bookmark question">
             {record.bookmarked ? <BookmarkCheck /> : <Bookmark />}
           </button>
@@ -752,4 +789,13 @@ function tabTitle(tab: Tab): string {
     bookmarks: "Bookmarks",
     settings: "Settings"
   }[tab];
+}
+
+function mergeRecord(records: PracticeRecord[], record: PracticeRecord): PracticeRecord[] {
+  if (!record.id) return [record, ...records];
+
+  const index = records.findIndex((item) => item.id === record.id);
+  if (index === -1) return [record, ...records];
+
+  return records.map((item) => (item.id === record.id ? record : item));
 }

@@ -9,18 +9,27 @@ import type {
   ProviderModel
 } from "./types";
 
-export function selectPrompt(prompts: PromptConfig[]): PromptConfig {
+export function selectPrompt(prompts: PromptConfig[], random: () => number = Math.random): PromptConfig {
   const enabled = prompts.filter((prompt) => prompt.weight > 0);
   const pool = enabled.length ? enabled : prompts;
-  const total = pool.reduce((sum, prompt) => sum + Math.max(0, prompt.weight), 0) || pool.length;
-  let pick = Math.random() * total;
-
-  for (const prompt of pool) {
-    pick -= Math.max(1, prompt.weight);
-    if (pick <= 0) return prompt;
+  if (!pool.length) {
+    throw new Error("At least one prompt is required.");
   }
 
-  return pool[0];
+  if (!enabled.length) {
+    const index = Math.min(pool.length - 1, Math.floor(random() * pool.length));
+    return pool[index];
+  }
+
+  const total = pool.reduce((sum, prompt) => sum + prompt.weight, 0);
+  let pick = Math.min(0.999999999, Math.max(0, random())) * total;
+
+  for (const prompt of pool) {
+    if (pick < prompt.weight) return prompt;
+    pick -= prompt.weight;
+  }
+
+  return pool[pool.length - 1];
 }
 
 export function selectedModel(settings: AppSettings): ProviderModel {

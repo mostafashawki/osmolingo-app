@@ -9,7 +9,7 @@ export default defineConfig({
     basicSsl(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "osmolingo-icon.svg"],
+      includeAssets: ["favicon.svg", "osmolingo-icon.svg", "notification-tone.wav"],
       manifest: {
         name: "Osmolingo",
         short_name: "Osmolingo",
@@ -33,7 +33,7 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"]
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,wav}"]
       }
     })
   ],

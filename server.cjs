@@ -259,6 +259,7 @@ function contentType(filePath) {
     ".json": "application/json",
     ".png": "image/png",
     ".ico": "image/x-icon",
+    ".wav": "audio/wav",
     ".webmanifest": "application/manifest+json"
   }[ext] || "application/octet-stream";
 }

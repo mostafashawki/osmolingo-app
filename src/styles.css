@@ -232,12 +232,19 @@ svg {
   width: 100%;
 }
 
-.error {
+.error,
+.notice {
   border-left: 4px solid var(--danger);
   background: #f8e7e3;
   color: #76342d;
   padding: 12px 14px;
   border-radius: 8px;
+}
+
+.notice {
+  border-left-color: var(--teal);
+  background: #e4eceb;
+  color: var(--teal-strong);
 }
 
 .practice-grid {
@@ -280,11 +287,20 @@ svg {
   align-items: center;
 }
 
-.question-meta span {
+.question-stamp {
+  display: grid;
+  gap: 4px;
+}
+
+.question-stamp span {
   color: var(--green);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.78rem;
+}
+
+.question-stamp small {
+  color: var(--muted);
 }
 
 .question-panel h2 {
